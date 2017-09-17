@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: eureka-server
+server:
+  port: 8000 # 为了与后续要进行注册的服务区分，这里将服务注册中心的端口通过server.port属性设置为8000
+eureka:
+  instance:
+    hostname: localhost
+  client:
+    register-with-eureka: false #在默认设置下，该服务注册中心也会将自己作为客户端来尝试注册它自己，所以需要禁用它的客户端注册行为
+    fetch-registry: false

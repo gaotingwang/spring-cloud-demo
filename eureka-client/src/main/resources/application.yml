@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: eureka-client
+server:
+  port: 8001
+eureka:
+  instance:
+    hostname: localhost
+  client:
+    service-url:
+      defaultZone: http://${eureka.instance.hostname}:8000/eureka/ #对应服务注册中心的配置内容，指定服务注册中心的位置。

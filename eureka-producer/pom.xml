@@ -12,14 +12,10 @@
     <artifactId>eureka-producer</artifactId>
 
     <dependencies>
-        <!--服务器发现者管理者-->
+        <!--服务器发现者管理者，其内已经包括了spring-boot-starter-web和spring-cloud-starter-->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-eureka</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
     </dependencies>
 </project>

@@ -63,7 +63,71 @@ spring cloud已经实现了服务注册中心，我们只需要很简单的几�
          defaultZone: http://localhost:${server.port}/eureka/ # 设置与Eureka Server交互的地址，查询服务和注册服务都需要依赖这个地址。
    ```
 
-启动工程后，可以通过访问[http://localhost:8000/](http://localhost:8000/)查看服务注册中心
+启动工程后，可以通过访问[http://localhost:8000/](http://localhost:8000/)查看服务注册中心。
+
+### 高可用
+
+Eureka Server除了单点运行之外，还可以通过运行多个实例，并进行互相注册的方式来实现高可用的部署，所以我们只需要将Eureke Server配置其他可用的serviceUrl就能实现高可用部署。Eureka Server的同步遵循着一个非常简单的原则：只要有一条边将节点连接，就可以进行信息传播与同步。假设我们有3个注册中心，我们将peer1、peer2、peer3各自都将serviceUrl指向另外两个节点。换言之，peer1、peer2、peer3是两两互相注册的。启动三个服务注册中心，并将compute-service的serviceUrl指向peer1并启动，可以获得如下图所示的集群效果。
+
+![eureka-server集群](http://blog.didispace.com/content/images/2016/09/s1.png)
+
+修改配置文件：
+
+```yaml
+spring:
+  application:
+    name: eureka-server-register-center
+
+---
+spring:
+  profiles: register-center1
+server:
+  port: 8000
+eureka:
+  instance:
+    hostname: register-center1
+  client:
+    service-url:
+      defaultZone: http://register-center2:8001/eureka/,http://register-center3:8002/eureka/
+---
+spring:
+  profiles: register-center2
+server:
+  port: 8001
+eureka:
+  instance:
+    hostname: register-center2
+  client:
+    service-url:
+      defaultZone: http://register-center1:8000/eureka/,http://register-center3:8002/eureka/
+---
+spring:
+  profiles: register-center3
+server:
+  port: 8002
+eureka:
+  instance:
+    hostname: register-center3
+  client:
+    service-url:
+      defaultZone: http://register-center1:8000/eureka/,http://register-center2:8001/eureka/
+```
+
+修改host文件，在`/etc/hosts`文件中添加对 register-center的映射转换:
+
+```
+127.0.0.1 register-center1
+127.0.0.1 register-center2
+127.0.0.1 register-center3
+```
+
+通过`spring.profiles.active`属性来分别启动:
+
+```shell
+java -jar target/eureka-server-1.0-SNAPSHOT.jar --spring.profiles.active=register-center1
+java -jar target/eureka-server-1.0-SNAPSHOT.jar --spring.profiles.active=register-center2
+java -jar target/eureka-server-1.0-SNAPSHOT.jar --spring.profiles.active=register-center3
+```
 
 ## Eureka Client
 

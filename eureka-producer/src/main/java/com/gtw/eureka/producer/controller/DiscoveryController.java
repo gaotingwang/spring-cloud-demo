@@ -1,4 +1,4 @@
-package com.gtw.client.controller;
+package com.gtw.eureka.producer.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.client.discovery.DiscoveryClient;

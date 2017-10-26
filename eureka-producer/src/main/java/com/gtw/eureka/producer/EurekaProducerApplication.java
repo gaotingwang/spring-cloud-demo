@@ -1,4 +1,4 @@
-package com.gtw.client;
+package com.gtw.eureka.producer;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

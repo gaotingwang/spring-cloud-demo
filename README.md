@@ -35,7 +35,7 @@ spring cloud已经实现了服务注册中心，我们只需要很简单的几�
 
    ```xml
    <dependencies>
-       <!--服务器发现者server部分-->
+       <!--服务发现者server部分-->
        <dependency>
            <groupId>org.springframework.cloud</groupId>
            <artifactId>spring-cloud-starter-eureka-server</artifactId>
@@ -64,3 +64,63 @@ spring cloud已经实现了服务注册中心，我们只需要很简单的几�
    ```
 
 启动工程后，可以通过访问[http://localhost:8000/](http://localhost:8000/)查看服务注册中心
+
+## Eureka Client
+
+上一步是服务注册中心的开发，现在是服务的提供与调用。流程是首先启动注册中心，服务提供者生产服务并注册到服务中心中，消费者从服务中心中获取服务并执行。
+
+添加依赖：
+
+```xml
+<!--服务发现者管理者，其内已经包括了spring-boot-starter-web和spring-cloud-starter-->
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-eureka</artifactId>
+</dependency>
+```
+
+### 服务提供
+
+1. 在`Config`类中添加`@EnableDiscoveryClient`用来将当前应用加入到服务治理体系中
+
+2. 修改配置文件`application.yml`，指定eureka注册中心的地址：
+
+   ```yaml
+   spring:
+     application:
+       name: eureka-producer
+   server:
+     port: 9000
+   eureka:
+     client:
+       service-url:
+         defaultZone: http://localhost:8000/eureka/ #对应服务注册中心的配置内容，指定服务注册中心的位置。
+   ```
+
+3. 提供服务
+
+   ```java
+   @RestController
+   public class DiscoveryController {
+       @Autowired
+       DiscoveryClient discoveryClient;
+
+       @GetMapping("/discovery")
+       public String dc() {
+           String services = "Services: " + discoveryClient.getServices();
+           System.out.println(services);
+           return services;
+       }
+   }
+   ```
+
+添加`@EnableDiscoveryClient`注解后，项目就具有了服务注册的功能。启动工程后，就可以在注册中心的页面看到eureka-producer服务。
+
+### 服务调用
+
+- Feign
+
+  通过Spring Cloud Feign来实现服务调用的方式更加简单了，通过`@FeignClient`定义的接口来统一的生命我们需要依赖的微服务接口。而在具体使用的时候就跟调用本地方法一点的进行调用即可。由于Feign是基于Ribbon实现的，所以它自带了客户端负载均衡功能，也可以通过Ribbon的IRule进行策略扩展。另外，Feign还整合的Hystrix来实现服务的容错保护，在Dalston版本中，Feign的Hystrix默认是关闭的。
+
+- ​
+

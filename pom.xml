@@ -11,6 +11,8 @@
         <module>eureka-server</module>
         <module>eureka-client</module>
         <module>eureka-consumer</module>
+        <module>hystrix-ribbon</module>
+        <module>hystrix-feign</module>
     </modules>
 
     <packaging>pom</packaging>

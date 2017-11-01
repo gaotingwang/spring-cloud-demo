@@ -1,6 +1,6 @@
 spring:
   application:
-    name: hystrix
+    name: hystrix-ribbon
 server:
   port: 9001
 eureka:

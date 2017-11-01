@@ -298,3 +298,92 @@ java -jar target/eureka-server-1.0-SNAPSHOT.jar --spring.profiles.active=registe
 
   通过Spring Cloud Feign来实现服务调用的方式更加简单了，通过`@FeignClient`定义的接口来统一的生命我们需要依赖的微服务接口。而在具体使用的时候就跟调用本地方法一点的进行调用即可。由于Feign是基于Ribbon实现的，所以它自带了客户端负载均衡功能，也可以通过Ribbon的IRule进行策略扩展。另外，Feign还整合的Hystrix来实现服务的容错保护，在Dalston版本中，Feign的Hystrix默认是关闭的。
 
+
+## Hystrix
+
+### 服务降级
+
+这里的例子都是对[服务调用](https://github.com/gaotingwang/spring-cloud-demo/tree/master/eureka-consumer)的例子中进行改造，当请求服务提供者超时或者出错时，转为调用指定方法，防止出现因“服务提供者”的不可用导致“服务消费者”的不可用的雪崩效应。
+
+- [Ribbon](https://github.com/gaotingwang/spring-cloud-demo/tree/master/hystrix-ribbon)
+
+  1. 添加Hystrix依赖：
+
+     ```xml
+     <!--添加hystrix依赖-->
+     <dependency>
+         <groupId>org.springframework.cloud</groupId>
+         <artifactId>spring-cloud-starter-hystrix</artifactId>
+     </dependency>
+     ```
+
+  2. 启动类中使用`@SpringCloudApplication`(即使用 `@EnableDiscoveryClient` 、 `@EnableCircuitBreaker`)注解
+
+     ```java
+     // 相当于@SpringBootApplication + @EnableDiscoveryClient + @EnableCircuitBreaker。意味着一个Spring Cloud标准应用应包含服务发现以及断路器。
+     @SpringCloudApplication
+     public class ConsumerApplication {
+         public static void main(String[] args) {
+             SpringApplication.run(ConsumerApplication.class, args);
+         }
+     }
+     ```
+
+  3. 使用`@HystrixCommand`注解来指定服务降级方法
+
+     ```java
+     @Service
+     class ConsumerService {
+         @Autowired
+         private RestTemplate ribbonRestTemplate;
+
+         /**
+          * 使用@HystrixCommand注解来指定服务降级方法,当方法请求超时或者请求错误，转为调用指定的降级方法
+          */
+         @HystrixCommand(fallbackMethod = "fallback")
+         public String consumer() {
+             return ribbonRestTemplate.getForObject("http://eureka-producer/hello?name=Jack", String.class);
+         }
+
+     	// 此方法为指定的降级调用的方法
+         private String fallback() {
+             return "fallback";
+         }
+     }
+     ```
+
+- [Feign](https://github.com/gaotingwang/spring-cloud-demo/tree/master/hystrix-feign)
+
+  1. 开启feign降级支持
+
+     ```yaml
+     feign:
+       hystrix:
+         enabled: true
+     ```
+
+  2. 创建回调类，实现回调的方法：
+
+     ```java
+     @Component
+     public class HelloRemoteHystrix implements HelloRemote {
+         @Override
+         public String hello(String name) {
+             return "message send failed ";
+         }
+     }
+     ```
+
+  3. 在`@FeignClient`中添加指定fallback类，在服务熔断的时候返回fallback类中的内容。
+
+     ```java
+     @FeignClient(name= "eureka-producer", fallback = HelloRemoteHystrix.class)
+     public interface HelloRemote {
+
+         /**
+          * 此类中的请求路径和远程服务中Controller中的请求路径和参数需保持一致
+          */
+         @GetMapping(value = "/hello")
+         String hello(@RequestParam(value = "name") String name);
+     }
+     ```

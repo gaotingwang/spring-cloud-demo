@@ -3,3 +3,6 @@ spring:
     name: spring-cloud-config-client
 server:
   port: 1002
+management:
+  security:
+    enabled: false # spring boot 1.5.X 以上actuator默认开通了安全认证，此处关闭

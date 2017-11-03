@@ -69,7 +69,7 @@ spring cloud已经实现了服务注册中心，我们只需要很简单的几�
 
 Eureka Server除了单点运行之外，还可以通过运行多个实例，并进行互相注册的方式来实现高可用的部署，所以我们只需要将Eureke Server配置其他可用的serviceUrl就能实现高可用部署。Eureka Server的同步遵循着一个非常简单的原则：只要有一条边将节点连接，就可以进行信息传播与同步。假设我们有3个注册中心，我们将peer1、peer2、peer3各自都将serviceUrl指向另外两个节点。换言之，peer1、peer2、peer3是两两互相注册的。启动三个服务注册中心，并将compute-service的serviceUrl指向peer1并启动，可以获得如下图所示的集群效果。
 
-![eureka-server集群](http://blog.didispace.com/content/images/2016/09/s1.png)
+![eureka-server集群](http://gtw.oss-cn-shanghai.aliyuncs.com/service-cluster.png)
 
 修改配置文件：
 
@@ -387,3 +387,160 @@ java -jar target/eureka-server-1.0-SNAPSHOT.jar --spring.profiles.active=registe
          String hello(@RequestParam(value = "name") String name);
      }
      ```
+
+## Config
+
+随着线上项目变的日益庞大，每个项目都散落着各种配置文件，需要的配置文件随着服务增加而不断增多。某一个基础服务信息变更，都会引起一系列的更新和重启，也容易出错。`Spring-cloud-config`便应运而生(`Spring cloud`使用`Git`或`SVN`存放配置文件，默认情况下使用`Git`)具有以下优点：
+
+- 集中管理各环境的配置文件
+- 配置文件修改之后，可以快速的生效
+- 可以进行版本管理
+- 支持大的并发查询
+- 提供服务端Server和客户端Client支持
+
+首先在Github仓库中创建一个文件夹config-repository用来存放配置文件，然后创建不同的配置文件:`cloud-config-dev.yml`、`cloud-config-test.yml`、`cloud-config-pro.yml`
+
+### [config-server](https://github.com/gaotingwang/spring-cloud-demo/tree/master/config-server)
+
+1. 添加依赖：
+
+   ```xml
+   <dependency>
+       <groupId>org.springframework.cloud</groupId>
+       <artifactId>spring-cloud-config-server</artifactId>
+   </dependency>
+   ```
+
+2. 配置类中使用`@EnableConfigServer`开启配置服务支持
+
+3. 配置文件`application.yml`:
+
+   ```yaml
+   server:
+     port: 1001
+   spring:
+     application:
+       name: spring-cloud-config-server
+     cloud:
+       config:
+         server:
+           git:
+             uri: https://github.com/gaotingwang/spring-cloud-demo/ # 配置git仓库的地址
+             search-paths: config-repository # git仓库地址下的相对地址，可以配置多个，用,分割。
+             username: # git仓库的账号
+             password:
+   ```
+
+server端相关配置已经完成，启动访问：[http://localhost:1001/cloud-config/pro/](http://localhost:1001/cloud-config/pro/)可以查看获取到的信息。修改仓库中的配置文件后刷新浏览器，可以看到内容的变更。
+
+仓库中的配置文件会被转换成web接口，访问的规则：`/{application}/{profile}[/{label}]` ——>`{application}-{profile}.yml`  ( 或`{label}/{application}-{profile}.yml` )。
+
+如访问`http://localhost:1001/cloud-config/pro/master/`对应的是以`master`分支的`cloud-config-dev.yml`配置文件，它的{application}是cloud-config，{profile}是dev，{label}是Git分支(可选)。
+
+### [config-client](https://github.com/gaotingwang/spring-cloud-demo/tree/master/config-client)
+
+1. 添加依赖：
+
+   ```xml
+   <dependency>
+       <groupId>org.springframework.cloud</groupId>
+       <artifactId>spring-cloud-starter-config</artifactId>
+   </dependency>
+
+   <!--方便web测试-->
+   <dependency>
+       <groupId>org.springframework.boot</groupId>
+       <artifactId>spring-boot-starter-web</artifactId>
+   </dependency>
+   ```
+
+2. 添加配置文件：
+
+   application.yml
+
+   ```yaml
+   spring:
+     application:
+       name: spring-cloud-config-client
+   server:
+     port: 1002
+   ```
+
+   bootstrap.yml
+
+   ```yaml
+   spring:
+     cloud:
+       config:
+         label: master # 对应git的分支。
+         name: cloud-config # 对应{application}部分
+         profile: dev # 对应{profile}部分
+         uri: http://localhost:1001/ # 配置中心的具体地址
+   ```
+
+   与spring-cloud相关的属性必须配置在bootstrap.yml中，config部分内容才能被正确加载。因为config的相关配置会先于application.yml，**bootstrap.yml的加载也是先于application.yml**。
+
+3. 测试
+
+   ```java
+   @RestController
+   class HelloController {
+       @Value("${demo.active}")
+       private String active;
+
+       @RequestMapping("/active")
+       public String from() {
+           return this.active; // return dev
+       }
+   }
+   ```
+
+
+springboot项目只有在启动的时候才会获取配置文件的值，修改github信息后，client端并不会主动刷新已经获取到的值。
+
+### refresh
+
+`Spring Cloud Config`分服务端和客户端，服务端负责将git（svn）中存储的配置文件发布成REST接口，客户端可以从服务端REST接口获取配置。但客户端并不能主动感知到配置的变化，从而主动去获取新的配置。客户端如何去主动获取新的配置信息呢，spring cloud已经提供了解决方案，每个客户端通过POST方法触发各自的`/refresh`。
+
+1. 添加依赖：
+
+   ```xml
+   <!--spring-boot-starter-actuator是一套监控的功能，可以监控程序在运行时状态，其中就包括/refresh的功能-->
+   <dependency>
+       <groupId>org.springframework.boot</groupId>
+       <artifactId>spring-boot-starter-actuator</artifactId>
+   </dependency>
+   ```
+
+2. spring boot 1.5.X 以上actuator默认开通了安全认证，application.yml添加配置关闭：
+
+   ```yaml
+   management:
+     security:
+       enabled: false 
+   ```
+
+3. 给加载变量的类上面加载`@RefreshScope`
+
+   ```java
+   @RefreshScope
+   @RestController
+   class HelloController {
+       @Value("${demo.active}")
+       private String active;
+
+       @RequestMapping("/active")
+       public String from() {
+           return this.active;
+       }
+   }
+   ```
+
+4. 当git中的配置发生变化，用POST方式请求http://localhost:1002/refresh，再次访问http://localhost:1002/active已经得到了最新的值。
+
+5. Github的 WebHook监测你的Github.com上的各种事件，通过发送http post请求的方式来通知信息接收方。
+
+   如果你设置了一个监测push事件的WebHook，那么每当你的这个项目有了任何提交，这个WebHook都会被触发，这时Github就会发送一个HTTP POST请求到你配置好的地址。
+
+   ![webhook](http://gtw.oss-cn-shanghai.aliyuncs.com/github-webhook.png)
+

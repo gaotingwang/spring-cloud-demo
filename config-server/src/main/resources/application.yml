@@ -1,0 +1,17 @@
+server:
+  port: 1001
+spring:
+  application:
+    name: spring-cloud-config-server
+#  profiles:
+#    active: native # 要想读取本地配置文件，设置spring.profiles.active = native，不指定默认为git方式
+  cloud:
+    config:
+      server:
+        native:
+          search-locations: file:E:/config-repository/
+        git:
+          uri: https://github.com/gaotingwang/spring-cloud-demo/ # 配置git仓库的地址
+          search-paths: config-repository # git仓库地址下的相对地址，可以配置多个，用,分割。
+          username: gaotingwang # git仓库的账号
+          password: 199205290529gtw
